@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Wikidata Description QS Generator</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 40px;
+      max-width: 800px;
+    }
+    textarea, select, button, input[type="file"] {
+      width: 100%;
+      font-size: 16px;
+      padding: 10px;
+      margin-top: 10px;
+    }
+    #output {
+      white-space: pre-wrap;
+      background: #f4f4f4;
+      padding: 15px;
+      margin-top: 20px;
+      border-left: 4px solid #888;
+      font-family: monospace;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>🛠️ Wikidata Description QuickStatements Generator</h2>
+
+  <label for="language">🌍 Select Language:</label>
+  <select id="language">
+    <option value="ml">Malayalam (ml)</option>
+    <option value="hi">Hindi (hi)</option>
+    <option value="ar">Arabic (ar)</option>
+  </select>
+
+  <h3>Option 1: Paste Manually</h3>
+  <label>🔗 Wikidata Links (one per line):</label>
+  <textarea id="wikidataLinks" rows="6" placeholder="https://www.wikidata.org/wiki/Q12345"></textarea>
+
+  <label>📝 Translated Descriptions (one per line):</label>
+  <textarea id="descriptions" rows="6" placeholder="Description for Q12345..."></textarea>
+
+  <h3>Option 2: Or Upload CSV</h3>
+  <input type="file" id="csvFile" accept=".csv">
+
+  <button onclick="generateQS()">Generate</button>
+  <button onclick="copyOutput()">Copy Output</button>
+
+  <h3>📄 Output: QuickStatements</h3>
+  <div id="output"></div>
+
+  <script>
+    let csvData = [];
+
+    function extractQID(link) {
+      const match = link.trim().match(/\/(Q\d+)$/);
+      return match ? match[1] : null;
+    }
+
+    function generateQS() {
+      const lang = "D" + document.getElementById("language").value;
+      let output = "";
+
+      // Option 2: CSV file data
+      if (csvData.length > 0) {
+        csvData.forEach((row, i) => {
+          const qid = extractQID(row.wikidata);
+          const desc = row.description.trim();
+          if (qid && desc) {
+            output += `${qid}\t${lang}\t"${desc}"\n`;
+          } else {
+            output += `⚠️ Error in CSV row ${i + 1}\n`;
+          }
+        });
+      } else {
+        // Option 1: Manual input
+        const links = document.getElementById("wikidataLinks").value.trim().split("\n");
+        const descriptions = document.getElementById("descriptions").value.trim().split("\n");
+        if (links.length !== descriptions.length) {
+          document.getElementById("output").textContent = "❌ Mismatch in number of links and descriptions.";
+          return;
+        }
+
+        for (let i = 0; i < links.length; i++) {
+          const qid = extractQID(links[i]);
+          const desc = descriptions[i].trim();
+          if (qid && desc) {
+            output += `${qid}\t${lang}\t"${desc}"\n`;
+          } else {
+            output += `⚠️ Error in line ${i + 1}\n`;
+          }
+        }
+      }
+
+      document.getElementById("output").textContent = output.trim();
+    }
+
+    function copyOutput() {
+      navigator.clipboard.writeText(document.getElementById("output").textContent)
+        .then(() => alert("✅ Copied to clipboard!"));
+    }
+
+    document.getElementById("csvFile").addEventListener("change", function (e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function (event) {
+        const lines = event.target.result.split("\n").filter(line => line.trim() !== "");
+        const headers = lines[0].split(",").map(h => h.trim().toLowerCase());
+        const wikidataIndex = headers.indexOf("wikidata");
+        const descIndex = headers.indexOf("description");
+
+        if (wikidataIndex === -1 || descIndex === -1) {
+          alert("❌ CSV must have 'wikidata' and 'description' columns.");
+          return;
+        }
+
+        csvData = lines.slice(1).map(line => {
+          const parts = line.split(",");
+          return {
+            wikidata: parts[wikidataIndex],
+            description: parts[descIndex]
+          };
+        });
+        alert(`✅ CSV loaded with ${csvData.length} rows.`);
+      };
+      reader.readAsText(file);
+    });
+  </script>
+
+</body>
+</html>
